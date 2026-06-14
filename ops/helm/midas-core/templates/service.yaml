@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "midas-core.name" . }}
+  labels:
+    {{- include "midas-core.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "midas-core.name" . }}
+  ports:
+    - name: http
+      port: {{ .Values.service.apiPort }}
+      targetPort: http
+    - name: management
+      port: {{ .Values.service.managementPort }}
+      targetPort: management

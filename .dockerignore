@@ -1,0 +1,11 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+.git/
+.gitignore
+*.md
+docs/
+ops/grafana/
+.github/
+.idea/
+*.iml
+.env

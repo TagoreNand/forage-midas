@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: midas
+    type: file
+    folder: Midas
+    options:
+      path: /etc/grafana/dashboards

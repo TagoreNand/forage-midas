@@ -1,0 +1,155 @@
+# Midas Core - application configuration (Phase 0-6).
+# Opt-in runtime features keep the default (local) build green with no external infra:
+#   midas.cache.enabled    - Redis read-model cache (NoOp fallback)
+#   midas.security.enabled - JWT/OAuth2 resource server + RBAC (permit-all fallback)
+# Distributed tracing exports via OTLP to the OpenTelemetry Collector (Phase 6).
+
+spring:
+  application:
+    name: midas-core
+  profiles:
+    active: local
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: midas-core
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.jpmc.midascore.*"
+        spring.json.value.default.type: com.jpmc.midascore.foundation.Transaction
+        spring.json.use.type.headers: "false"
+    listener:
+      ack-mode: manual
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      timeout: 200ms
+
+server:
+  port: 33400
+
+general:
+  kafka-topic: ${MIDAS_KAFKA_TOPIC:midas-transactions}
+  events-topic: ${MIDAS_EVENTS_TOPIC:midas-domain-events}
+  incentive-api-url: ${INCENTIVE_API_URL:http://localhost:8080}
+
+# Opt-in enterprise features (Phase 3 cache, Phase 4 security, rate limiting, Phase 5 fraud).
+midas:
+  cache:
+    enabled: ${MIDAS_CACHE_ENABLED:false}
+    ttl-seconds: ${MIDAS_CACHE_TTL_SECONDS:60}
+  security:
+    enabled: ${MIDAS_SECURITY_ENABLED:false}
+    jwt:
+      secret: ${MIDAS_JWT_SECRET:midas-development-only-hmac-secret-change-me-please-256-bits}
+  ratelimit:
+    requests-per-minute: ${MIDAS_RATELIMIT_RPM:120}
+
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    redis:
+      enabled: false
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  tracing:
+    sampling:
+      probability: ${MIDAS_TRACE_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      incentiveApi:
+        sliding-window-size: 20
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+  retry:
+    instances:
+      incentiveApi:
+        max-attempts: 3
+        wait-duration: 200ms
+
+---
+# ---------- LOCAL / DEV: H2, cache OFF, security OFF, tracing export OFF ----------
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:h2:mem:midas;DB_CLOSE_DELAY=-1;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  flyway:
+    enabled: false
+management:
+  tracing:
+    enabled: false   # don't attempt OTLP export with no collector running locally
+
+---
+# ---------- PRODUCTION: PostgreSQL, Redis cache ON, security ON, traces -> OTel Collector ----------
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:midas}
+    username: ${DB_USER:midas}
+    password: ${DB_PASSWORD:midas}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      minimum-idle: 5
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+  flyway:
+    enabled: false
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+midas:
+  cache:
+    enabled: ${MIDAS_CACHE_ENABLED:true}
+    ttl-seconds: ${MIDAS_CACHE_TTL_SECONDS:60}
+  security:
+    enabled: ${MIDAS_SECURITY_ENABLED:true}
+    jwt:
+      secret: ${MIDAS_JWT_SECRET:midas-development-only-hmac-secret-change-me-please-256-bits}
+  ratelimit:
+    requests-per-minute: ${MIDAS_RATELIMIT_RPM:120}
+management:
+  tracing:
+    sampling:
+      probability: ${MIDAS_TRACE_SAMPLING:0.1}

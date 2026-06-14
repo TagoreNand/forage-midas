@@ -1,0 +1,46 @@
+{
+  "title": "Midas Core - Overview",
+  "uid": "midas-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Transfers / sec by result",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "sum by (result) (rate(midas_transfers_total[1m]))", "legendFormat": "{{result}}" }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Balance cache hit ratio",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "sum(rate(midas_balance_cache_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(midas_balance_cache_total[5m])), 1)" }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Fraud assessments / sec by decision",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "sum by (decision) (rate(midas_fraud_assessments_total[1m]))", "legendFormat": "{{decision}}" }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Reconciliation mismatches (1h)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        { "expr": "increase(midas_reconciliation_total{result=\"mismatch\"}[1h])" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+# SLO and business alert rules (Phase 6). Loaded by prometheus.yml via rule_files.
+groups:
+  - name: midas-slo
+    rules:
+      - alert: HighTransferErrorRate
+        expr: sum(rate(midas_transfers_total{result="error"}[5m])) / clamp_min(sum(rate(midas_transfers_total[5m])), 1) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Transfer error rate above 5% for 10m"
+
+      - alert: LedgerReconciliationMismatch
+        expr: increase(midas_reconciliation_total{result="mismatch"}[1h]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Ledger reconciliation mismatch - value not conserved; investigate immediately"
+
+      - alert: HighFraudBlockRate
+        expr: sum(rate(midas_fraud_assessments_total{decision="block"}[15m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated fraud BLOCK rate"
+
+      - alert: IncentiveCircuitBreakerOpen
+        expr: resilience4j_circuitbreaker_state{name="incentiveApi",state="open"} == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Incentive API circuit breaker is OPEN - rewards degraded to zero"
+
+      - alert: BalanceApiLatencySlo
+        expr: histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{uri="/balance"}[5m])) by (le)) > 0.02
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "GET /balance p99 latency above 20ms SLO"

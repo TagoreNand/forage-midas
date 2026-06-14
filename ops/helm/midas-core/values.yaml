@@ -1,0 +1,45 @@
+replicaCount: 3
+
+image:
+  repository: ghcr.io/tagorenand/midas-core
+  tag: ""            # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+service:
+  apiPort: 33400
+  managementPort: 8081
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 12
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  minAvailable: 2
+
+env:
+  SPRING_PROFILES_ACTIVE: prod
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  DB_HOST: postgres
+  SPRING_DATA_REDIS_HOST: redis
+  MIDAS_CACHE_ENABLED: "true"
+  MIDAS_SECURITY_ENABLED: "true"
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+
+ingress:
+  enabled: true
+  className: nginx
+  host: midas.example.com
+
+serviceMonitor:
+  enabled: true
+  interval: 15s

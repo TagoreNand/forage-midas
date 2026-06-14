@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "midas-core.name" . }}
+  labels:
+    {{- include "midas-core.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "midas-core.name" . }}
+  template:
+    metadata:
+      labels:
+        {{- include "midas-core.labels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.service.managementPort }}"
+        prometheus.io/path: /actuator/prometheus
+    spec:
+      containers:
+        - name: midas-core
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.apiPort }}
+            - name: management
+              containerPort: {{ .Values.service.managementPort }}
+          env:
+            {{- range $k, $v := .Values.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: midas-core-secrets
+                  key: db-password
+            - name: MIDAS_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: midas-core-secrets
+                  key: jwt-secret
+          startupProbe:
+            httpGet: { path: /actuator/health/readiness, port: management }
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet: { path: /actuator/health/readiness, port: management }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /actuator/health/liveness, port: management }
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
