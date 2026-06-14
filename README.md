@@ -1,6 +1,6 @@
 <div align="center">
 
-# 💰 Midas Core
+#  Midas Core
 
 ### Real-time peer-to-peer payments engine — hexagonal, event-driven, observable
 
